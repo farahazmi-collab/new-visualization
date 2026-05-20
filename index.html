@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <title>Masjid di Kabupaten Padang Lawas</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; padding: 0; background-color: #fdfbf7; }
+        #map { width: 100%; height: 100vh; border: 5px solid #f8d7da; border-radius: 15px; }
+
+        /* Kotak Judul */
+        .title-box {
+            position: absolute; top: 10px; left: 50px; z-index: 1000;
+            background: rgba(255, 240, 245, 0.9); padding: 15px;
+            border-radius: 15px; border: 2px solid #ffb6c1;
+            box-shadow: 0 4px 10px rgba(219, 112, 147, 0.3);
+            color: #d63384; font-weight: bold;
+        }
+
+        /* Styling Popup */
+        .leaflet-popup-content-wrapper { background: #fff0f5 !important; border-radius: 15px !important; }
+        .leaflet-popup-content { color: #d63384; font-weight: bold; }
+        
+        /* Kontrol Layer */
+        .leaflet-control-layers { background: #fff0f5 !important; border: 2px solid #ffb6c1 !important; border-radius: 10px !important; color: #d63384; }
+        .leaflet-control-zoom a { background-color: #ffc0cb !important; color: white !important; border-bottom: 1px solid #ffb6c1 !important; }
+    </style>
+</head>
+<body>
+
+    <div class="title-box">
+        Sebaran Masjid<br>
+        di Kabupaten Padang Lawas
+    </div>
+    <div id="map"></div>
+
+    <script>
+        var mymap = L.map('map').setView([1.2000, 99.7000], 11);
+
+        // Basemaps
+        var osm = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OSM' }).addTo(mymap);
+        var topo = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}', { attribution: '© Esri World Topo' });
+        var citra = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { attribution: '© Esri World Imagery' });
+
+        // Layer Groups
+        var adminLayer = L.layerGroup();
+        var jalanLayer = L.layerGroup();
+        var masjidLayer = L.layerGroup();
+
+        // 1. Memuat Layer Administrasi (Polygon)
+        fetch('ADMIN.geojson')
+            .then(response => response.json())
+            .then(data => {
+                L.geoJSON(data, { 
+                    style: { color: '#ffb6c1', weight: 1, fillOpacity: 0.2 },
+                    onEachFeature: (f, l) => {
+                        // Memeriksa kolom nama daerah yang umum digunakan pada SHP Indonesia (NAMOBJ atau WADMKC)
+                        var namaDaerah = f.properties.NAMOBJ || f.properties.WADMKC || f.properties.REMARK || "Data Wilayah";
+                        l.bindPopup(namaDaerah);
+                    }
+                }).addTo(adminLayer);
+            });
+
+        // 2. Memuat Layer Jalan (LineString)
+        fetch('JALAN.geojson')
+            .then(response => response.json())
+            .then(data => {
+                L.geoJSON(data, { 
+                    style: { color: '#ff69b4', weight: 2 },
+                    onEachFeature: (f, l) => {
+                        var jenisJalan = f.properties.REMARK || "Jalan";
+                        l.bindPopup(jenisJalan);
+                    }
+                }).addTo(jalanLayer);
+            });
+
+        // 3. Memuat Layer Masjid (Point menjadi Titik Pink Lingkaran)
+        fetch('MASJID.geojson')
+            .then(response => response.json())
+            .then(data => {
+                L.geoJSON(data, { 
+                    pointToLayer: function (feature, latlng) {
+                        // Mengubah pin default biru menjadi lingkaran pink estetik
+                        return L.circleMarker(latlng, {
+                            radius: 6,
+                            fillColor: '#db7093',
+                            color: '#ffffff', // Outline putih agar lebih kontras terlihat
+                            weight: 1.5,
+                            opacity: 1,
+                            fillOpacity: 0.9
+                        });
+                    },
+                    onEachFeature: (f, l) => {
+                        l.bindPopup("Masjid");
+                    }
+                }).addTo(masjidLayer);
+            });
+
+        // Layer Control
+        var baseMaps = { 
+            "OpenStreetMap": osm, 
+            "Peta Topografi": topo,
+            "Citra Satelit": citra 
+        };
+        
+        var overlayMaps = { 
+            "Administrasi": adminLayer, 
+            "Jaringan Jalan": jalanLayer, 
+            "Masjid": masjidLayer 
+        };
+        
+        L.control.layers(baseMaps, overlayMaps, { collapsed: false }).addTo(mymap);
+    </script>
+</body>
+</html>
